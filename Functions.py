@@ -41,7 +41,18 @@ def train(model, dataloader, loss_fn, optimizer, device, epochs=5):
     for epoch in range(epochs):
         running_loss = 0.0
         for images, labels in dataloader:
-            images, labels = images.to(device), labels.to(device)
+            images = images.to(device)
+
+            # Si el modelo fue creado para 4 clases agrupadas, mapear las etiquetas
+            salida_model = None
+            if hasattr(model, '_config') and isinstance(model._config, dict):
+                salida_model = model._config.get('salida')
+
+            if salida_model == 4:
+                # mapear_clases_agrupadas devuelve un tensor en CPU; mover a device
+                labels = mapear_clases_agrupadas(labels).to(device)
+            else:
+                labels = labels.to(device)
             
             # Forward
             outputs = model(images)
@@ -130,9 +141,18 @@ def probar_con_metricas(model, dataloader, device, nombres_clases):
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)
-            
+            # Si el modelo usa 4 clases agrupadas, mapear las etiquetas reales antes de guardar
+            salida_model = None
+            if hasattr(model, '_config') and isinstance(model._config, dict):
+                salida_model = model._config.get('salida')
+
+            if salida_model == 4:
+                etiquetas_mapeadas = mapear_clases_agrupadas(labels.cpu()).numpy()
+                todas_etiquetas.extend(etiquetas_mapeadas)
+            else:
+                todas_etiquetas.extend(labels.cpu().numpy())
+
             todas_predicciones.extend(predicted.cpu().numpy())
-            todas_etiquetas.extend(labels.cpu().numpy())
     
     # Calcular matriz de confusión
     num_clases = len(nombres_clases)
