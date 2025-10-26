@@ -36,20 +36,18 @@ def train(model, dataloader, loss_fn, optimizer, device, epochs=5):
     model.to(device)
     model.train()
     
-    perdidas_por_epoca = []  # Para graficar
+    perdidas_por_epoca = [] 
     
     for epoch in range(epochs):
         running_loss = 0.0
         for images, labels in dataloader:
             images = images.to(device)
 
-            # Si el modelo fue creado para 4 clases agrupadas, mapear las etiquetas
             salida_model = None
             if hasattr(model, '_config') and isinstance(model._config, dict):
                 salida_model = model._config.get('salida')
 
             if salida_model == 4:
-                # mapear_clases_agrupadas devuelve un tensor en CPU; mover a device
                 labels = mapear_clases_agrupadas(labels).to(device)
             else:
                 labels = labels.to(device)
@@ -75,7 +73,7 @@ def calcular_metricas(matriz_confusion):
     """
     Calcula accuracy, precisión y recall desde la matriz de confusión
     """
-    # Accuracy: suma de diagonal / suma total
+    # Accuracy
     accuracy = np.trace(matriz_confusion) / np.sum(matriz_confusion)
     
     # Precisión y recall por clase
@@ -84,7 +82,6 @@ def calcular_metricas(matriz_confusion):
     recalls = []
     
     for i in range(num_clases):
-        # Precisión: TP / (TP + FP)
         tp = matriz_confusion[i, i]
         fp = np.sum(matriz_confusion[:, i]) - tp
         
@@ -94,7 +91,6 @@ def calcular_metricas(matriz_confusion):
             precision = 0.0
         precisiones.append(precision)
         
-        # Recall: TP / (TP + FN)
         fn = np.sum(matriz_confusion[i, :]) - tp
         
         if (tp + fn) > 0:
@@ -103,7 +99,6 @@ def calcular_metricas(matriz_confusion):
             recall = 0.0
         recalls.append(recall)
     
-    # Promedios ponderados (weighted average)
     total_muestras = np.sum(matriz_confusion)
     muestras_por_clase = np.sum(matriz_confusion, axis=1)
     
@@ -116,7 +111,7 @@ def calcular_matriz_confusion(predicciones, etiquetas_reales, num_clases):
     """
     Calcula la matriz de confusión manualmente
     predicciones: tensor o lista con las predicciones
-    etiquetas_reales: tensor o lista con las etiquetas verdaderas
+    etiquetas_reales: tensor o lista con las etiquetas que en realidad eran
     num_clases: número de clases (10 o 4)
     """
     matriz = torch.zeros(num_clases, num_clases, dtype=torch.int64)
@@ -141,7 +136,6 @@ def probar_con_metricas(model, dataloader, device, nombres_clases):
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)
-            # Si el modelo usa 4 clases agrupadas, mapear las etiquetas reales antes de guardar
             salida_model = None
             if hasattr(model, '_config') and isinstance(model._config, dict):
                 salida_model = model._config.get('salida')
@@ -154,20 +148,18 @@ def probar_con_metricas(model, dataloader, device, nombres_clases):
 
             todas_predicciones.extend(predicted.cpu().numpy())
     
-    # Calcular matriz de confusión
+    # Calcular matriz de confusión, métrics y mostart resultados
     num_clases = len(nombres_clases)
     matriz = calcular_matriz_confusion(todas_predicciones, todas_etiquetas, num_clases)
-    
-    # Calcular métricas
+
     accuracy, precision, recall = calcular_metricas(matriz)
     
-    # Mostrar resultados
     print(f"\n\t\t\t📊 Métricas del modelo:")
     print(f"\t\t\t   • Accuracy: {accuracy * 100:.2f}%")
     print(f"\t\t\t   • Precisión (promedio): {precision * 100:.2f}%")
     print(f"\t\t\t   • Recall (promedio): {recall * 100:.2f}%")
     
-    # Graficar matriz de confusión
+    # Graficar
     graficar_matriz_confusion(matriz, nombres_clases)
     
     return accuracy
@@ -248,12 +240,4 @@ def cargar_modelo(ruta, device=None, tipo_red=None, **kwargs):
     else:
         raise ValueError("Formato de archivo no reconocido: se esperaba un checkpoint dict con 'state_dict'.")
 
-def graficar_perdida(perdidas, titulo="Pérdida durante el entrenamiento"):
-    plt.figure(figsize=(10, 6))
-    plt.plot(range(1, len(perdidas) + 1), perdidas, marker='o', linestyle='-', color='blue')
-    plt.title(titulo)
-    plt.xlabel('Época')
-    plt.ylabel('Pérdida')
-    plt.grid(True)
-    plt.show()
 

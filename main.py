@@ -6,7 +6,8 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from NeuralNetwork import RedRectangular, RedConvolucional
-from Functions import train, probar_con_metricas, guardar_modelo, cargar_modelo, graficar_matriz_confusion, graficar_perdida
+from Functions import train, probar_con_metricas, guardar_modelo, cargar_modelo
+from Graphics import graficar_matriz_confusion, graficar_perdida
 
 def main():
     print("\n" + "="*60)
@@ -70,7 +71,37 @@ def main():
                 continue
             
             print("\n\t\t\t🧪 Evaluando modelo...\n")
-            accuracy = probar_con_metricas(model, test_loader, device, nombres_clases)
+            # Determinar nombres de clases según la salida del modelo (10 o 4)
+            salida_model = None
+            if hasattr(model, '_config') and isinstance(model._config, dict):
+                salida_model = model._config.get('salida')
+
+            # Si no está en _config, intentar inferir desde la última capa linear
+            if salida_model is None:
+                try:
+                    # buscar última Linear en atributos comunes
+                    last_linear = None
+                    if hasattr(model, 'model'):
+                        for layer in reversed(list(model.model)):
+                            if isinstance(layer, nn.Linear):
+                                last_linear = layer
+                                break
+                    if last_linear is None and hasattr(model, 'fc'):
+                        for layer in reversed(list(model.fc)):
+                            if isinstance(layer, nn.Linear):
+                                last_linear = layer
+                                break
+                    if last_linear is not None:
+                        salida_model = last_linear.out_features
+                except Exception:
+                    salida_model = None
+
+            if salida_model == 4:
+                nombres_clases_eval = ['Top', 'Bottom', 'Footwear', 'Bag']
+            else:
+                nombres_clases_eval = nombres_clases
+
+            accuracy = probar_con_metricas(model, test_loader, device, nombres_clases_eval)
         
         elif opcion == '5':
             if model is None:
